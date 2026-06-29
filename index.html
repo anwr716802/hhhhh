@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>متجري المربوط بـ Supabase</title>
+    <title>متجري المباشر</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <style>
         :root {
             --primary-color: #24b47e;
@@ -20,7 +18,7 @@
             margin: 0; padding: 0;
             background-color: var(--light-bg);
             color: #333;
-            padding-bottom: 150px; /* مساحة لعدم تغطية الكونسول المحمول للمحتوى */
+            padding-bottom: 150px;
         }
 
         header {
@@ -43,7 +41,6 @@
 
         .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
 
-        /* لوحة التحكم */
         .admin-section {
             background: white; padding: 25px;
             border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -56,7 +53,6 @@
             width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
         }
 
-        /* شبكة المنتجات */
         .products-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 25px; margin-top: 20px;
@@ -81,7 +77,6 @@
             font-size: 12px; position: absolute; top: 10px; left: 10px;
         }
 
-        /* شاشة الكونسول المخصصة للهاتف */
         .mobile-console {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: #1e1e1e; color: #00ff00;
@@ -106,7 +101,6 @@
     </header>
 
     <div class="container">
-
         <div id="admin-panel" class="admin-section">
             <h2>🛠️ لوحة تحكم المدير</h2>
             <form id="product-form" onsubmit="saveProduct(event)">
@@ -130,7 +124,6 @@
         <div id="products-container" class="products-grid">
             <p>جاري الاتصال بالمتجر وتحميل المنتجات...</p>
         </div>
-
     </div>
 
     <div class="mobile-console">
@@ -141,23 +134,21 @@
         <div id="console-output">سيتم طباعة أي خطأ برمي هنا فوراً...</div>
     </div>
 
-    <script>
-        // إعدادات الربط الثابتة الخاصة بك
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
         const SUPABASE_URL = "https://iasfcjhyjdkshidlzdhi.supabase.co";
-        const SUPABASE_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlhc2Zjamh5amRrc2JpZGxkemhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NTYxODgsImV4cCI6MjA5ODMzMjE4OH0.gyTzDE0EWx_6wk3hSGnt2VnCCmIRfIq1EdQRq4QU_y0";
+        const SUPABASE_KEY = "sb_publishable_UCy2U2dYn66ljnicxAVpjw_VJkH7EDw"; // مفتاحك الجديد الكامل السليم
 
-        // الاتصال التلقائي بـ Supabase
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // دالة مخصصة لطباعة الأخطاء في كونسول الهاتف الشاشة
         function phoneLog(message, isError = false) {
             const output = document.getElementById('console-output');
             const color = isError ? '#ff4444' : '#00ff00';
             output.innerHTML = `<span style="color: ${color}">[${new Date().toLocaleTimeString()}] ${message}</span><br>` + output.innerHTML;
         }
 
-        // إظهار وإخفاء لوحة المدير
-        function toggleAdminView() {
+        window.toggleAdminView = function() {
             const panel = document.getElementById('admin-panel');
             const btn = document.getElementById('toggle-admin-btn');
             if (panel.style.display === 'block') {
@@ -169,46 +160,44 @@
             }
         }
 
-        // 1. جلب وعرض البيانات للعملاء
         async function fetchProducts() {
             const container = document.getElementById('products-container');
-            
-            const { data, error } = await supabaseClient
-                .from('products')
-                .select('*');
+            try {
+                const { data, error } = await supabaseClient.from('products').select('*');
 
-            if (error) {
-                phoneLog(`فشل جلب المنتجات: ${error.message} (${error.hint || ''})`, true);
-                container.innerHTML = "<p style='color:red;'>فشل تحميل البيانات، راجع الكونسول بالأسفل.</p>";
-                return;
-            }
+                if (error) {
+                    phoneLog(`فشل جلب المنتجات: ${error.message}`, true);
+                    container.innerHTML = "<p style='color:red;'>فشل تحميل البيانات، راجع الكونسول بالأسفل.</p>";
+                    return;
+                }
 
-            phoneLog("تم جلب المنتجات بنجاح من قاعدة البيانات.");
+                phoneLog("تم جلب المنتجات بنجاح من قاعدة البيانات.");
 
-            if(data.length === 0) {
-                container.innerHTML = "<p>المتجر فارغ حالياً. افتح لوحة المدير وأضف منتجك الأول!</p>";
-                return;
-            }
+                if(data.length === 0) {
+                    container.innerHTML = "<p>المتجر فارغ حالياً. افتح لوحة المدير وأضف منتجك الأول!</p>";
+                    return;
+                }
 
-            container.innerHTML = "";
-            data.forEach(product => {
-                container.innerHTML += `
-                    <div class="product-card">
-                        <div>
-                            <h3>${product.title}</h3>
-                            <p>${product.description}</p>
+                container.innerHTML = "";
+                data.forEach(product => {
+                    container.innerHTML += `
+                        <div class="product-card">
+                            <div>
+                                <h3>${product.title}</h3>
+                                <p>${product.description}</p>
+                            </div>
+                            <div class="price">${product.price} ر.س</div>
+                            <button class="delete-btn" onclick="deleteProduct(${product.id})">حذف 🗑️</button>
                         </div>
-                        <div class="price">${product.price} ر.س</div>
-                        <button class="delete-btn" onclick="deleteProduct(${product.id})">حذف 🗑️</button>
-                    </div>
-                `;
-            });
+                    `;
+                });
+            } catch (err) {
+                phoneLog(`خطأ غير متوقع: ${err.message}`, true);
+            }
         }
 
-        // 2. إضافة منتج جديد
-        async function saveProduct(event) {
+        window.saveProduct = async function(event) {
             event.preventDefault();
-            
             const title = document.getElementById('p-title').value;
             const description = document.getElementById('p-desc').value;
             const price = document.getElementById('p-price').value;
@@ -219,17 +208,16 @@
 
             if (error) {
                 phoneLog(`خطأ أثناء إضافة منتج: ${error.message}`, true);
-                alert("حدث خطأ! التفاصيل في الأسفل.");
+                alert("حدث خطأ!");
             } else {
                 phoneLog(`تم إضافة المنتج بنجاح: "${title}"`);
                 alert("✨ تم النشر بنجاح!");
                 document.getElementById('product-form').reset();
-                fetchProducts(); // تحديث فوري
+                fetchProducts();
             }
         }
 
-        // 3. حذف منتج
-        async function deleteProduct(productId) {
+        window.deleteProduct = async function(productId) {
             if(!confirm("هل تريد حذف هذا المنتج؟")) return;
 
             const { error } = await supabaseClient
@@ -245,9 +233,8 @@
             }
         }
 
-        // تشغيل الجلب التلقائي فور فتح الصفحة
+        // تشغيل الجلب عند التحميل
         fetchProducts();
     </script>
 </body>
 </html>
-
