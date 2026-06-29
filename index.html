@@ -138,9 +138,17 @@
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 
         const SUPABASE_URL = "https://iasfcjhyjdkshidlzdhi.supabase.co";
-        const SUPABASE_KEY = "sb_publishable_UCy2U2dYn66ljnicxAVpjw_VJkH7EDw"; // مفتاحك الجديد الكامل السليم
+        const SUPABASE_KEY = "sb_publishable_UCy2U2dYn66ljnicxAVpjw_VJkH7EDw"; 
 
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+        // تزويد عميل سوبابيز بالـ Headers الصارمة للمتصفحات والموقع المرفوع
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
+            global: {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            }
+        });
 
         function phoneLog(message, isError = false) {
             const output = document.getElementById('console-output');
@@ -233,7 +241,6 @@
             }
         }
 
-        // تشغيل الجلب عند التحميل
         fetchProducts();
     </script>
 </body>
