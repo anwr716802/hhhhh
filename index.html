@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>متجري المربوط بـ Supabase</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --primary-color: #24b47e;
+            --dark-color: #1c1c1c;
+            --light-bg: #f3f4f6;
+            --danger-color: #ea4335;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; padding: 0;
+            background-color: var(--light-bg);
+            color: #333;
+            padding-bottom: 150px; /* مساحة لعدم تغطية الكونسول المحمول للمحتوى */
+        }
+
+        header {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 { margin: 0; font-size: 24px; }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white; border: none;
+            padding: 10px 20px; border-radius: 5px;
+            cursor: pointer; font-weight: bold;
+        }
+
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+
+        /* لوحة التحكم */
+        .admin-section {
+            background: white; padding: 25px;
+            border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 40px; display: none;
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+        }
+
+        /* شبكة المنتجات */
+        .products-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px; margin-top: 20px;
+        }
+
+        .product-card {
+            background: white; border-radius: 8px; padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column; justify-content: space-between;
+            position: relative;
+        }
+
+        .product-card h3 { margin: 0 0 10px 0; color: var(--dark-color); }
+        .product-card p { color: #666; font-size: 14px; line-height: 1.5; }
+        .product-card .price {
+            font-size: 18px; font-weight: bold; color: var(--primary-color); margin-top: 15px;
+        }
+
+        .delete-btn {
+            background: var(--danger-color); color: white; border: none;
+            padding: 5px 10px; border-radius: 4px; cursor: pointer;
+            font-size: 12px; position: absolute; top: 10px; left: 10px;
+        }
+
+        /* شاشة الكونسول المخصصة للهاتف */
+        .mobile-console {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: #1e1e1e; color: #00ff00;
+            font-family: monospace; font-size: 12px;
+            max-height: 130px; overflow-y: auto;
+            padding: 10px; box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+            direction: ltr; text-align: left; z-index: 9999;
+            border-top: 2px solid #444;
+        }
+        .console-title {
+            color: #fff; font-weight: bold; margin-bottom: 5px;
+            border-bottom: 1px solid #444; padding-bottom: 3px;
+            display: flex; justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🏪 متجري المباشر</h1>
+        <button class="btn" id="toggle-admin-btn" onclick="toggleAdminView()">دخول لوحة التحكم (المدير)</button>
+    </header>
+
+    <div class="container">
+
+        <div id="admin-panel" class="admin-section">
+            <h2>🛠️ لوحة تحكم المدير</h2>
+            <form id="product-form" onsubmit="saveProduct(event)">
+                <div class="form-group">
+                    <label>اسم المنتج:</label>
+                    <input type="text" id="p-title" required>
+                </div>
+                <div class="form-group">
+                    <label>الوصف:</label>
+                    <textarea id="p-desc" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>السعر (ريال):</label>
+                    <input type="number" id="p-price" required>
+                </div>
+                <button type="submit" class="btn">حفظ ونشر المنتج 🚀</button>
+            </form>
+        </div>
+
+        <h2>📦 المنتجات المتاحة في المتجر</h2>
+        <div id="products-container" class="products-grid">
+            <p>جاري الاتصال بالمتجر وتحميل المنتجات...</p>
+        </div>
+
+    </div>
+
+    <div class="mobile-console">
+        <div class="console-title">
+            <span>📟 شاشة فحص الأخطاء (Console Log)</span>
+            <span style="cursor:pointer;color:red;" onclick="document.querySelector('.mobile-console').style.display='none'">[إغلاق]</span>
+        </div>
+        <div id="console-output">سيتم طباعة أي خطأ برمي هنا فوراً...</div>
+    </div>
+
+    <script>
+        // إعدادات الربط الثابتة الخاصة بك
+        const SUPABASE_URL = "https://iasfcjhyjdkshidlzdhi.supabase.co";
+        const SUPABASE_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlhc2Zjamh5amRrc2JpZGxkemhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NTYxODgsImV4cCI6MjA5ODMzMjE4OH0.gyTzDE0EWx_6wk3hSGnt2VnCCmIRfIq1EdQRq4QU_y0";
+
+        // الاتصال التلقائي بـ Supabase
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // دالة مخصصة لطباعة الأخطاء في كونسول الهاتف الشاشة
+        function phoneLog(message, isError = false) {
+            const output = document.getElementById('console-output');
+            const color = isError ? '#ff4444' : '#00ff00';
+            output.innerHTML = `<span style="color: ${color}">[${new Date().toLocaleTimeString()}] ${message}</span><br>` + output.innerHTML;
+        }
+
+        // إظهار وإخفاء لوحة المدير
+        function toggleAdminView() {
+            const panel = document.getElementById('admin-panel');
+            const btn = document.getElementById('toggle-admin-btn');
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+                btn.innerText = "دخول لوحة التحكم (المدير)";
+            } else {
+                panel.style.display = 'block';
+                btn.innerText = "الخروج من لوحة التحكم";
+            }
+        }
+
+        // 1. جلب وعرض البيانات للعملاء
+        async function fetchProducts() {
+            const container = document.getElementById('products-container');
+            
+            const { data, error } = await supabaseClient
+                .from('products')
+                .select('*');
+
+            if (error) {
+                phoneLog(`فشل جلب المنتجات: ${error.message} (${error.hint || ''})`, true);
+                container.innerHTML = "<p style='color:red;'>فشل تحميل البيانات، راجع الكونسول بالأسفل.</p>";
+                return;
+            }
+
+            phoneLog("تم جلب المنتجات بنجاح من قاعدة البيانات.");
+
+            if(data.length === 0) {
+                container.innerHTML = "<p>المتجر فارغ حالياً. افتح لوحة المدير وأضف منتجك الأول!</p>";
+                return;
+            }
+
+            container.innerHTML = "";
+            data.forEach(product => {
+                container.innerHTML += `
+                    <div class="product-card">
+                        <div>
+                            <h3>${product.title}</h3>
+                            <p>${product.description}</p>
+                        </div>
+                        <div class="price">${product.price} ر.س</div>
+                        <button class="delete-btn" onclick="deleteProduct(${product.id})">حذف 🗑️</button>
+                    </div>
+                `;
+            });
+        }
+
+        // 2. إضافة منتج جديد
+        async function saveProduct(event) {
+            event.preventDefault();
+            
+            const title = document.getElementById('p-title').value;
+            const description = document.getElementById('p-desc').value;
+            const price = document.getElementById('p-price').value;
+
+            const { error } = await supabaseClient
+                .from('products')
+                .insert([{ title, description, price: parseInt(price) }]);
+
+            if (error) {
+                phoneLog(`خطأ أثناء إضافة منتج: ${error.message}`, true);
+                alert("حدث خطأ! التفاصيل في الأسفل.");
+            } else {
+                phoneLog(`تم إضافة المنتج بنجاح: "${title}"`);
+                alert("✨ تم النشر بنجاح!");
+                document.getElementById('product-form').reset();
+                fetchProducts(); // تحديث فوري
+            }
+        }
+
+        // 3. حذف منتج
+        async function deleteProduct(productId) {
+            if(!confirm("هل تريد حذف هذا المنتج؟")) return;
+
+            const { error } = await supabaseClient
+                .from('products')
+                .delete()
+                .eq('id', productId);
+
+            if (error) {
+                phoneLog(`خطأ أثناء الحذف: ${error.message}`, true);
+            } else {
+                phoneLog(`تم حذف منتج بنجاح (ID: ${productId})`);
+                fetchProducts();
+            }
+        }
+
+        // تشغيل الجلب التلقائي فور فتح الصفحة
+        fetchProducts();
+    </script>
+</body>
+</html>
+
